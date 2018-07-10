@@ -1,19 +1,10 @@
-import urllib.request
-import requests
 from bs4 import BeautifulSoup
 import socket
-import cfscrape
-from multiprocessing import Pool, Queue, Manager, Process
-from multiprocessing import freeze_support
-from functools import partial
 
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import os
-import time
 import sys
 import csv
 
@@ -24,83 +15,7 @@ team_names = []
 team_scores_and_names_dict = {}
 team_stats_list = []
 
-
-def worker(url, team_dictionary):
-	driver = webdriver.Chrome()
-	driver.implicitly_wait(30)
-	driver.get(url)
-
-	try:
-		element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "profile-header")))
-
-		#######################################
-		#  team_stats[0]: number of wins      #
-		#  team_stats[1]: number of losses    #
-		#  team_stats[2]: rounds won          # 
-		#  team_stats[3]: rounds lost         # 
-		#######################################
-		team_stats = [0, 0, 0, 0]
-
-		team_page = BeautifulSoup(driver.page_source, "html.parser")
-		team_name = team_page.find('h1').text
-		print(team_name)
-		table_rows = team_page.find("table").find('tbody').find_all("tr")
-		skip_first = 0
-
-		for row in table_rows:
-			if(skip_first == 0):
-				skip_first = 1
-				pass
-			else:
-				cells = row.find_all("td")
-				if(len(cells) == 7):
-					if(cells[4].find('a') == None):
-						break
-					if(cells[4].find('a').text == 'Win'):
-						#Adds a win and 16 rounds to the team_stats
-						team_stats[0] = team_stats[0] + 1
-						team_stats[2] = team_stats[2] + 16
-
-						score_breakdown = cells[5].find('a').text.split('-')
-						if(int(score_breakdown[0]) < int(score_breakdown[1])):
-							if(int(score_breakdown[0]) > 14):
-								team_stats[3] = team_stats[3] + 15
-							else:
-								team_stats[3] = team_stats[3] +int(score_breakdown[0])
-						else:
-							if(int(score_breakdown[1]) > 14):
-								team_stats[3] = team_stats[3] + 15
-							else:
-								team_stats[3] = team_stats[3] + int(score_breakdown[1])
-
-					else:
-						team_stats[1] = team_stats[1] + 1
-						team_stats[3] = team_stats[3] + 16
-
-						score_breakdown = cells[5].find('a').text.split('-')
-						if(int(score_breakdown[0]) < int(score_breakdown[1])):
-							if(int(score_breakdown[0]) > 14):
-								team_stats[2] = team_stats[2] + 15
-							else:
-								team_stats[2] = team_stats[2] + int(score_breakdown[0])
-						else:
-							if(int(score_breakdown[1]) > 14):
-								team_stats[2] = team_stats[2] + 15
-							else:
-								team_stats[2] = team_stats[2] + int(score_breakdown[1])
-
-				else:
-					break
-
-		print(team_stats)
-		team_dictionary[team_name] = team_stats
-	finally:
-		driver.quit()
-
 if __name__ == '__main__':
-	freeze_support()
-	sys.setrecursionlimit(3000)
-	print(sys.getrecursionlimit())
 	print("Import done")
 
 
@@ -182,7 +97,8 @@ if __name__ == '__main__':
 									team_stats[3] = team_stats[3] + 15
 								else:
 									team_stats[3] = team_stats[3] + int(score_breakdown[1])
-
+						elif(cells[4].find('a').text == 'Tie'):
+							pass
 						else:
 							team_stats[1] = team_stats[1] + 1
 							team_stats[3] = team_stats[3] + 16
@@ -210,8 +126,11 @@ if __name__ == '__main__':
 		finally:
 			driver.quit()
 
+	#Prints unsorted team list
 	print(team_stats_list)
 	print('\n\n')
+
+	#Selection Sort on the list
 	for i in range(0, len(team_stats_list)):
 		for j in range(i+1, len(team_stats_list)):
 			if(team_stats_list[i][0] < team_stats_list[j][0]):
@@ -227,10 +146,19 @@ if __name__ == '__main__':
 							team_stats_list[i], team_stats_list[j] = team_stats_list[j], team_stats_list[i]
 
 
-
+	#Prints sorted team list
 	print(team_stats_list)
+
+	counter = 1
+	seeded_against = 255
 	with open('rankings.csv', 'w', newline = '') as csv_file:
 		writer = csv.writer(csv_file)
-		writer.writerow(['Team Name', 'Games Won', 'Games Lost', 'Rounds Won', 'Rounds Against'])
+		writer.writerow(['Team Ranking', 'Team Name', 'Games Won', 'Games Lost', 'Rounds Won', 'Rounds Against', 'Playing Against Seed'])
 		for item in team_stats_list:
-			writer.writerow([item[4], item[0], item[1], item[2], item[3]])
+			if(seeded_against < 0):
+				writer.writerow([counter, item[4], item[0], item[1], item[2], item[3]])
+				counter = counter + 1
+			else:
+				writer.writerow([counter, item[4], item[0], item[1], item[2], item[3], team_stats_list[seeded_against][4]])
+				counter = counter + 1
+				seeded_against = seeded_against - 1
