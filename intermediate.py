@@ -5,7 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException
 import csv
 import time
 
@@ -15,6 +15,8 @@ team_urls = []
 team_names = []
 team_scores_and_names_dict = {}
 team_stats_list = []
+unupdated_team_list = []
+
 
 if __name__ == '__main__':
 	print("Import done")
@@ -54,73 +56,78 @@ if __name__ == '__main__':
 			link = driver.find_element_by_link_text(name)
 			link.location_once_scrolled_into_view
 			link.click()
-			element = WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, "profile-header")))
+			try:
+				element = WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, "profile-header")))
 
-			team_stats = [0, 0, 0, 0, '']
+				team_stats = [0, 0, 0, 0, '']
 
-			team_page = BeautifulSoup(driver.page_source, "html.parser")
-			team_name = team_page.find('h1').text
-			print(team_name)
-			team_stats[4] = team_name
-			table_rows = team_page.find("table").find('tbody').find_all("tr")
-			skip_first = 0
-			
-			for row in table_rows:
-				if(skip_first == 0):
-					skip_first = 1
-				else:
-					cells = row.find_all("td")
-					if(len(cells) == 7):
-						if(cells[4].find('a') == None):
-							break
-						if(cells[4].find('a').text == 'Win'):
-							#Adds a win and 16 rounds to the team_stats
-							team_stats[0] = team_stats[0] + 1
-							team_stats[2] = team_stats[2] + 16
-
-							score_breakdown = cells[5].find('a').text.split('-')
-							if(int(score_breakdown[0]) < int(score_breakdown[1])):
-								if(int(score_breakdown[0]) > 14):
-									team_stats[3] = team_stats[3] + 15
-								else:
-									team_stats[3] = team_stats[3] +int(score_breakdown[0])
-							else:
-								if(int(score_breakdown[1]) > 14):
-									team_stats[3] = team_stats[3] + 15
-								else:
-									team_stats[3] = team_stats[3] + int(score_breakdown[1])
-						elif(cells[4].find('a').text == 'Tie'):
-							pass
-						else:
-							team_stats[1] = team_stats[1] + 1
-							team_stats[3] = team_stats[3] + 16
-
-							score_breakdown = cells[5].find('a').text.split('-')
-							if(int(score_breakdown[0]) < int(score_breakdown[1])):
-								if(int(score_breakdown[0]) > 14):
-									team_stats[2] = team_stats[2] + 15
-								else:
-									team_stats[2] = team_stats[2] + int(score_breakdown[0])
-							else:
-								if(int(score_breakdown[1]) > 14):
-									team_stats[2] = team_stats[2] + 15
-								else:
-									team_stats[2] = team_stats[2] + int(score_breakdown[1])
-
+				team_page = BeautifulSoup(driver.page_source, "html.parser")
+				team_name = team_page.find('h1').text
+				print(team_name)
+				team_stats[4] = team_name
+				table_rows = team_page.find("table").find('tbody').find_all("tr")
+				skip_first = 0
+				
+				for row in table_rows:
+					if(skip_first == 0):
+						skip_first = 1
 					else:
-						break
+						cells = row.find_all("td")
+						if(len(cells) == 7):
+							if(cells[4].find('a') == None):
+								break
+							if(cells[4].find('a').text == 'Win'):
+								#Adds a win and 16 rounds to the team_stats
+								team_stats[0] = team_stats[0] + 1
+								team_stats[2] = team_stats[2] + 16
 
-			print(team_stats)
-			team_stats_list.append(team_stats)
-			counter = counter + 1
-			print(counter)
+								score_breakdown = cells[5].find('a').text.split('-')
+								if(int(score_breakdown[0]) < int(score_breakdown[1])):
+									if(int(score_breakdown[0]) > 14):
+										team_stats[3] = team_stats[3] + 15
+									else:
+										team_stats[3] = team_stats[3] +int(score_breakdown[0])
+								else:
+									if(int(score_breakdown[1]) > 14):
+										team_stats[3] = team_stats[3] + 15
+									else:
+										team_stats[3] = team_stats[3] + int(score_breakdown[1])
+							elif(cells[4].find('a').text == 'Tie'):
+								pass
+							else:
+								team_stats[1] = team_stats[1] + 1
+								team_stats[3] = team_stats[3] + 16
 
-			driver.back()
-			time.sleep(3)
+								score_breakdown = cells[5].find('a').text.split('-')
+								if(int(score_breakdown[0]) < int(score_breakdown[1])):
+									if(int(score_breakdown[0]) > 14):
+										team_stats[2] = team_stats[2] + 15
+									else:
+										team_stats[2] = team_stats[2] + int(score_breakdown[0])
+								else:
+									if(int(score_breakdown[1]) > 14):
+										team_stats[2] = team_stats[2] + 15
+									else:
+										team_stats[2] = team_stats[2] + int(score_breakdown[1])
+
+						else:
+							break
+
+				print(team_stats)
+				team_stats_list.append(team_stats)
+				counter = counter + 1
+				print(counter)
+
+				driver.back()
+				time.sleep(3)
+			except TimeoutException as ex:
+				print(ex)
+				unupdated_team_list.append(name)
 	finally:
 		driver.quit()
 
-	print("ta da")
+	print("Teams which timed out")
+	print(unupdated_team_list)
 
 	for i in range(0, len(team_stats_list)):
 		for j in range(i+1, len(team_stats_list)):
